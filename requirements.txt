@@ -1,0 +1,6 @@
+cffi==1.17.1
+cryptography==43.0.3
+py4j==0.10.9.7
+pycparser==2.22
+PyMySQL==1.1.1
+pyspark==3.5.3
