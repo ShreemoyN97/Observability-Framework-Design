@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 def main():
     load_dotenv()
     input_file_path = os.getenv('input_file_path')
-    output_file_path = os.getenv('input_file_path')
+    output_file_path = os.getenv('output_file_path')
     
     # Capture the process start time
     process_start_time = datetime.now()

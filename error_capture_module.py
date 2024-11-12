@@ -14,7 +14,6 @@ DB_USER = os.getenv('username')
 DB_PASSWORD = os.getenv('password')
 
 
-
 def connect_to_database():
     return pymysql.connect(
         host=DB_HOST, 
