@@ -3,10 +3,14 @@ from datetime import datetime  # Import datetime
 from data_capture_module import process_file
 from etl_tasks import perform_etl
 import pipeline_observation_module
+import os
+from dotenv import load_dotenv
+
 
 def main():
-    input_file_path = '/Users/vraosharma/Desktop/Python/Data Gove/EV_s3Trigger.csv'
-    output_file_path = '/Users/vraosharma/Desktop/Python/Data Gove/output_with_aggregated_values.csv'
+    load_dotenv()
+    input_file_path = os.getenv('input_file_path')
+    output_file_path = os.getenv('input_file_path')
     
     # Capture the process start time
     process_start_time = datetime.now()
