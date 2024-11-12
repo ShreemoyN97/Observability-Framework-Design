@@ -2,13 +2,20 @@
 import csv
 import pymysql
 from datetime import datetime
+import os
+from dotenv import load_dotenv
+import os
 
 def connect_to_database():
-    host = 'localhost'
-    user = 'root'
-    password = 'ASDf090120@'
-    database = 'DAMG_7473_ADG_Framework_Database'
-    return pymysql.connect(host=host, user=user, password=password, db=database)
+    load_dotenv() 
+
+    host = os.getenv('host')
+    port = int(os.getenv('port'))
+    database = os.getenv('database')
+    username = os.getenv('username')
+    password = os.getenv('password')
+
+    return pymysql.connect(host=host, port=port, user=username, password=password, db=database)
 
 def process_file(file_path):
     file_name = file_path.split('/')[-1]

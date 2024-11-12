@@ -1,18 +1,26 @@
 import pymysql
 import json
 from datetime import datetime
+import os
+from dotenv import load_dotenv
+import os
 
-DB_HOST = 'localhost'
-DB_USER = 'root'
-DB_PASSWORD = 'ASDf090120@'
-DB_NAME = 'DAMG_7473_ADG_Framework_Database'
+load_dotenv()
+
+DB_HOST = os.getenv('host')
+DB_PORT = int(os.getenv('port'))
+DB_DATABASE = os.getenv('database')
+DB_USER = os.getenv('username')
+DB_PASSWORD = os.getenv('password')
+
+
 
 def connect_to_database():
     return pymysql.connect(
         host=DB_HOST, 
         user=DB_USER, 
         password=DB_PASSWORD, 
-        db=DB_NAME,
+        db=DB_DATABASE,
         cursorclass=pymysql.cursors.DictCursor  # Use DictCursor to return results as dictionaries
     )
 

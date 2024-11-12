@@ -2,11 +2,16 @@
 import pymysql
 from datetime import datetime
 from pyspark.sql import SparkSession
+import os
+from dotenv import load_dotenv
 
-DB_HOST = 'localhost'
-DB_USER = 'root'
-DB_PASSWORD = 'ASDf090120@'
-DB_NAME = 'DAMG_7473_ADG_Framework_Database'
+load_dotenv() 
+
+DB_HOST = os.getenv('host')
+DB_NAME = os.getenv('database')
+DB_USER = os.getenv('username')
+DB_PASSWORD = os.getenv('password')
+
 
 def connect_to_database():
     return pymysql.connect(

@@ -5,8 +5,8 @@ from etl_tasks import perform_etl
 import pipeline_observation_module
 
 def main():
-    input_file_path = '/Users/shreemoynanda/Desktop/NY_Lobbying_data_1.csv'
-    output_file_path = '/Users/shreemoynanda/Desktop/output_with_aggregated_values.csv'
+    input_file_path = '/Users/vraosharma/Desktop/Python/Data Gove/EV_s3Trigger.csv'
+    output_file_path = '/Users/vraosharma/Desktop/Python/Data Gove/output_with_aggregated_values.csv'
     
     # Capture the process start time
     process_start_time = datetime.now()
