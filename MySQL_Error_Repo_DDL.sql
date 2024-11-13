@@ -104,3 +104,8 @@ INSERT INTO Error_Message_Reference (Error_Code, Error_Message) VALUES
 (1029, 'Aggregation function error'),
 (1030, 'Failed to load record into target database');
 
+INSERT INTO File_Schema ( File_Category_Name, Schema_Text)
+VALUES (
+    'EV',
+    'form_submission_id, reporting_year, filing_type, reporting_period, principal_lobbyist_name, contractual_client_name, beneficial_client_name, individual_lobbyist_name, compensation, reimbursed_expenses, expenses_less_than_75, lobbying_expenses_for_non, itemized_expenses, expense_type, expense_paid_to, expense_reimbursed_by_client, expense_purpose, expense_date, lobbying_subjects, level_of_government, lobbying_focus_type, focus_identifying_number, type_of_lobbying_communication, government_body, monitoring_only, party_name, unique_id'
+);
