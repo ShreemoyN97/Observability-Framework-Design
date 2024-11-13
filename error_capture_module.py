@@ -7,11 +7,12 @@ import os
 
 load_dotenv()
 
-DB_HOST = os.getenv('host')
-DB_PORT = int(os.getenv('port'))
-DB_DATABASE = os.getenv('database')
-DB_USER = os.getenv('username')
-DB_PASSWORD = os.getenv('password')
+DB_HOST = os.getenv('DB1_HOST')
+DB_NAME = os.getenv('DB1_NAME')
+DB_USER = os.getenv('DB1_USER')
+DB_PASSWORD = os.getenv('DB1_PASSWORD')
+
+
 
 
 def connect_to_database():
@@ -19,7 +20,7 @@ def connect_to_database():
         host=DB_HOST, 
         user=DB_USER, 
         password=DB_PASSWORD, 
-        db=DB_DATABASE,
+        db=DB_NAME,
         cursorclass=pymysql.cursors.DictCursor  # Use DictCursor to return results as dictionaries
     )
 

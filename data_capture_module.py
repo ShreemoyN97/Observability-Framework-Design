@@ -4,18 +4,17 @@ import pymysql
 from datetime import datetime
 import os
 from dotenv import load_dotenv
-import os
+
 
 def connect_to_database():
     load_dotenv() 
 
-    host = os.getenv('host')
-    port = int(os.getenv('port'))
-    database = os.getenv('database')
-    username = os.getenv('username')
-    password = os.getenv('password')
+    host = os.getenv('DB1_HOST')
+    database = os.getenv('DB1_NAME')
+    username = os.getenv('DB1_USER')
+    password = os.getenv('DB1_PASSWORD')
 
-    return pymysql.connect(host=host, port=port, user=username, password=password, db=database)
+    return pymysql.connect(host=host, user=username, password=password, db=database)
 
 def process_file(file_path):
     file_name = file_path.split('/')[-1]
@@ -40,49 +39,55 @@ def process_file(file_path):
                 category_exists = cursor.fetchone()[0]
 
                 if category_exists == 0:
+                    print("Category doesn't exist.")
                     raise ValueError(f"File category '{file_category_name}' does not exist in File_Schema table.")
+                else:
+                    print("Category does exist.")
+                    # Find the file schema ID
+                    cursor.execute("SELECT File_Schema_ID FROM File_Schema WHERE File_Category_Name = %s", (file_category_name,))
+                    file_schema_id = cursor.fetchone()[0]
+                    print(f"File schema ID: {file_schema_id}")
+                    cursor.execute("INSERT INTO File_Name (Processing_file_name) VALUES (%s)", (file_name,))
+                    processing_file_id = cursor.lastrowid
+                    cursor.execute("""
+                        INSERT INTO Pipeline_Observability (
+                            Processing_File_ID, 
+                            File_Schema_ID, 
+                            Time_Of_Arrival, 
+                            Process_StartTime, 
+                            Process_End_Time, 
+                            Input_File_Size, 
+                            Initial_Count_Of_Records, 
+                            Count_Of_Processed_Records, 
+                            Count_Of_Error_Records,
+                            Count_of_Distinct_Errors
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """, (
+                        processing_file_id, 
+                        file_schema_id, 
+                        time_of_arrival, 
+                        time_of_arrival, 
+                        time_of_arrival, 
+                        input_file_size, 
+                        initial_count_of_records, 
+                        0,  # Assuming 0 processed records initially
+                        0,  # Assuming 0 error records initially
+                        0   # Assuming 0 distinct errors initially
+                    ))
 
-                # Insert file information into Pipeline_Observability
-                cursor.execute("INSERT INTO File_Schema (File_Category_Name, Schema_Text) VALUES (%s, %s)", (file_category_name, schema_text))
-                file_schema_id = cursor.lastrowid
-                cursor.execute("INSERT INTO File_Name (Processing_file_name) VALUES (%s)", (file_name,))
-                processing_file_id = cursor.lastrowid
-                cursor.execute("""
-                    INSERT INTO Pipeline_Observability (
-                        Processing_File_ID, 
-                        File_Schema_ID, 
-                        Time_Of_Arrival, 
-                        Process_StartTime, 
-                        Process_End_Time, 
-                        Input_File_Size, 
-                        Initial_Count_Of_Records, 
-                        Count_Of_Processed_Records, 
-                        Count_Of_Error_Records,
-                        Count_of_Distinct_Errors
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                """, (
-                    processing_file_id, 
-                    file_schema_id, 
-                    time_of_arrival, 
-                    time_of_arrival, 
-                    time_of_arrival, 
-                    input_file_size, 
-                    initial_count_of_records, 
-                    0,  # Assuming 0 processed records initially
-                    0,  # Assuming 0 error records initially
-                    0   # Assuming 0 distinct errors initially
-                ))
-
-                connection.commit()
-            print("Data captured and stored successfully.")
-            return processing_file_id  # Return the processing_file_id
+                    connection.commit()
+                    print("Data captured and stored successfully.")
+                    # Return the processing_file_id and file_category
+                    return processing_file_id, file_category_name
+            
         finally:
             if connection:
                 connection.close()
+                
     except Exception as e:
         print(f"Error processing file: {str(e)}")
         return None  # Return None if there's an error
-
+    
 
 def main(file_path):
     return process_file(file_path)  # Return process_file_id from main

@@ -7,10 +7,10 @@ from dotenv import load_dotenv
 
 load_dotenv() 
 
-DB_HOST = os.getenv('host')
-DB_NAME = os.getenv('database')
-DB_USER = os.getenv('username')
-DB_PASSWORD = os.getenv('password')
+DB_HOST = os.getenv('DB1_HOST')
+DB_NAME = os.getenv('DB1_NAME')
+DB_USER = os.getenv('DB1_USER')
+DB_PASSWORD = os.getenv('DB1_PASSWORD')
 
 
 def connect_to_database():
@@ -81,18 +81,30 @@ def get_error_metrics(process_file_id):
     finally:
         connection.close()
 
-def get_processed_count(output_path):
+
+def get_processed_count(table_name):
     """
-    Count the number of records in the processed output files.
-    :param output_path: Path to the output directory where processed CSV files are stored.
-    :return: The count of processed records.
+    Count the number of records in the processed table with the latest created_at timestamp.
+    :return: The count of processed records in the latest batch.
     """
-    spark = SparkSession.builder \
-        .appName("ProcessedCount") \
-        .getOrCreate()
-    
-    df = spark.read.option("header", "true").csv(output_path)
-    processed_count = df.count()
-    spark.stop()
-    
+    connection = pymysql.connect(
+        host=os.getenv("DB1_HOST"),
+        user=os.getenv("DB1_USER"),
+        password=os.getenv("DB1_PASSWORD"),
+        database=os.getenv("DB2_NAME"),
+        cursorclass=pymysql.cursors.DictCursor
+    )
+    try:
+        with connection.cursor() as cursor:
+            # Fetch the latest `created_at` timestamp
+            cursor.execute(f"SELECT MAX(created_at) AS latest_timestamp FROM {table_name}")
+            latest_timestamp = cursor.fetchone()['latest_timestamp']
+            # Use latest_timestamp directly without checking for null, relying on existing data integrity
+            cursor.execute(
+                f"SELECT COUNT(*) AS processed_count FROM {table_name} WHERE created_at = %s",
+                (latest_timestamp,)
+            )
+            processed_count = cursor.fetchone()['processed_count']
+    finally:
+        connection.close()
     return processed_count
