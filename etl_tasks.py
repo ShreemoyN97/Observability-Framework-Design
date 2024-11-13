@@ -60,50 +60,15 @@ def perform_etl(file_category_name, input_path, process_file_id):
             col("itemized_expenses")
         )
         
+
+        # Count the number of records
+        processed_count = df.count()
         # Write the transformed data to MySQL
-        write_to_mysql(df)
+        write_to_csvfile(df)
         # Stop the Spark session
         spark.stop()
+        return processed_count
 
-
-
-def write_to_mysql(df):
-    # Connect to MySQL
-    connection = pymysql.connect(
-        host=os.getenv("DB1_HOST"),
-        user=os.getenv("DB1_USER"),
-        password=os.getenv("DB1_PASSWORD"),
-        database=os.getenv("DB2_NAME"),
-        cursorclass=pymysql.cursors.DictCursor
-    )
-    with connection.cursor() as cursor:
-        for row in df.collect():
-            cursor.execute(
-                """
-                INSERT INTO Processed_Lobbying_Data (
-                    form_submission_id, reporting_year, filing_type, reporting_period,
-                    principal_lobbyist_name, contractual_client_name, beneficial_client_name,
-                    individual_lobbyist_name, compensation, reimbursed_expenses, expenses_less_than_75,
-                    lobbying_expenses_for_non, itemized_expenses, expense_type, expense_paid_to,
-                    expense_reimbursed_by_client, expense_purpose, expense_date, lobbying_subjects,
-                    level_of_government, lobbying_focus_type, focus_identifying_number,
-                    type_of_lobbying_communication, government_body, monitoring_only, party_name,
-                    unique_id, total_financials
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                """,
-                (
-                    row['form_submission_id'], row['reporting_year'], row['filing_type'],
-                    row['reporting_period'], row['principal_lobbyist_name'],
-                    row['contractual_client_name'], row['beneficial_client_name'],
-                    row['individual_lobbyist_name'], row['compensation'],
-                    row['reimbursed_expenses'], row['expenses_less_than_75'],
-                    row['lobbying_expenses_for_non'], row['itemized_expenses'],
-                    row['expense_type'], row['expense_paid_to'], row['expense_reimbursed_by_client'],
-                    row['expense_purpose'], row['expense_date'], row['lobbying_subjects'],
-                    row['level_of_government'], row['lobbying_focus_type'], row['focus_identifying_number'],
-                    row['type_of_lobbying_communication'], row['government_body'], row['monitoring_only'],
-                    row['party_name'], row['unique_id'], row['total_financials']
-                )
-            )
-    connection.commit()
-    connection.close()
+def write_to_csvfile(df):
+    # Write the DataFrame to a CSV file
+    df.write.option("header", "true").csv("output.csv")

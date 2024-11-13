@@ -35,7 +35,7 @@ def initialize_observation(process_file_id, process_start_time):
                 (process_start_time, process_file_id)
             )
             connection.commit()
-        print("Observation initialized with process start time.")
+        print(f"Pipeline_Observability initialized with process start time. FileID: {process_file_id}.")
     finally:
         connection.close()
 
@@ -59,7 +59,7 @@ def finalize_observation(process_file_id, process_end_time, initial_count_of_rec
                 (process_end_time, processed_count, error_count, distinct_error_count, process_file_id)
             )
             connection.commit()
-        print("Observation finalized with process end time.")
+        print("Pipeline_Observability updated with process end time.")
     finally:
         connection.close()
 
@@ -82,29 +82,3 @@ def get_error_metrics(process_file_id):
         connection.close()
 
 
-def get_processed_count(table_name):
-    """
-    Count the number of records in the processed table with the latest created_at timestamp.
-    :return: The count of processed records in the latest batch.
-    """
-    connection = pymysql.connect(
-        host=os.getenv("DB1_HOST"),
-        user=os.getenv("DB1_USER"),
-        password=os.getenv("DB1_PASSWORD"),
-        database=os.getenv("DB2_NAME"),
-        cursorclass=pymysql.cursors.DictCursor
-    )
-    try:
-        with connection.cursor() as cursor:
-            # Fetch the latest `created_at` timestamp
-            cursor.execute(f"SELECT MAX(created_at) AS latest_timestamp FROM {table_name}")
-            latest_timestamp = cursor.fetchone()['latest_timestamp']
-            # Use latest_timestamp directly without checking for null, relying on existing data integrity
-            cursor.execute(
-                f"SELECT COUNT(*) AS processed_count FROM {table_name} WHERE created_at = %s",
-                (latest_timestamp,)
-            )
-            processed_count = cursor.fetchone()['processed_count']
-    finally:
-        connection.close()
-    return processed_count
