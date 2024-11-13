@@ -71,3 +71,36 @@ ADD CONSTRAINT Pipeline_Observability_fk0 FOREIGN KEY (Processing_File_ID) REFER
 
 ALTER TABLE Pipeline_Observability
 ADD CONSTRAINT Pipeline_Observability_fk1 FOREIGN KEY (File_Schema_ID) REFERENCES File_Schema(File_Schema_ID);
+
+INSERT INTO Error_Message_Reference (Error_Code, Error_Message) VALUES
+(1001, 'Missing required field'),
+(1002, 'Null value encountered in non-nullable column'),
+(1003, 'Data type mismatch'),
+(1004, 'Value exceeds maximum allowable length'),
+(1005, 'Invalid date format'),
+(1006, 'Invalid numeric format'),
+(1007, 'Foreign key constraint violation'),
+(1008, 'Duplicate primary key'),
+(1009, 'Unique constraint violation'),
+(1010, 'Invalid value in enum field'),
+(1011, 'Failed to parse JSON structure'),
+(1012, 'Value out of allowable range'),
+(1013, 'Inconsistent data between source and target'),
+(1014, 'Missing foreign key reference'),
+(1015, 'Duplicate record detected'),
+(1016, 'Failed to connect to source system'),
+(1017, 'Failed to connect to target database'),
+(1018, 'Insufficient privileges for data access'),
+(1019, 'Failed data validation against schema'),
+(1020, 'Data truncation warning'),
+(1021, 'Invalid currency code format'),
+(1022, 'Failed data transformation'),
+(1023, 'Record exceeds allowable file size'),
+(1024, 'Unsupported file format'),
+(1025, 'Required file missing in source'),
+(1026, 'Row processing timeout'),
+(1027, 'Header row missing in CSV file'),
+(1028, 'Unsupported character encoding'),
+(1029, 'Aggregation function error'),
+(1030, 'Failed to load record into target database');
+
