@@ -82,29 +82,31 @@ def get_error_metrics(process_file_id):
         connection.close()
 
 
-def get_processed_count(table_name):
+from pyspark.sql import SparkSession
+
+def get_processed_count(file_path: str) -> int:
     """
-    Count the number of records in the processed table with the latest created_at timestamp.
-    :return: The count of processed records in the latest batch.
+    Count the total number of records in the processed flat file.
+    :param file_path: Path to the flat file containing the processed data.
+    :return: The count of records in the file.
     """
-    connection = pymysql.connect(
-        host=os.getenv("DB1_HOST"),
-        user=os.getenv("DB1_USER"),
-        password=os.getenv("DB1_PASSWORD"),
-        database=os.getenv("DB2_NAME"),
-        cursorclass=pymysql.cursors.DictCursor
-    )
+    # Initialize a new Spark session
+    spark = SparkSession.builder \
+        .appName("Get Processed Count") \
+        .getOrCreate()
+
     try:
-        with connection.cursor() as cursor:
-            # Fetch the latest `created_at` timestamp
-            cursor.execute(f"SELECT MAX(created_at) AS latest_timestamp FROM {table_name}")
-            latest_timestamp = cursor.fetchone()['latest_timestamp']
-            # Use latest_timestamp directly without checking for null, relying on existing data integrity
-            cursor.execute(
-                f"SELECT COUNT(*) AS processed_count FROM {table_name} WHERE created_at = %s",
-                (latest_timestamp,)
-            )
-            processed_count = cursor.fetchone()['processed_count']
+        # Load the flat file into a Spark DataFrame
+        processed_df = spark.read.option("header", "true").csv(file_path, inferSchema=True)
+
+        # Calculate the total record count
+        record_count = processed_df.count()
+        return record_count
+
+    except Exception as e:
+        print(f"Error in get_processed_count: {e}")
+        return 0
+
     finally:
-        connection.close()
-    return processed_count
+        # Stop the Spark session
+        spark.stop()
