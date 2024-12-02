@@ -1,109 +1,108 @@
-# etl_tasks.py
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col
+from pyspark.sql.functions import col, to_date, current_date, max, when, month, dayofweek, lower
 import error_capture_module
-import pymysql
 import os
+from dotenv import load_dotenv
 
-def perform_etl(file_category_name, input_path, process_file_id):
-    if file_category_name == "EV":
+load_dotenv()
+
+def perform_etl(file_category_name, input_file_path, process_file_id):
+    if file_category_name == "EVTRA":
         # Initialize Spark session
         spark = SparkSession.builder \
-            .appName("Data Aggregation") \
+            .appName("ETL with Validation, Transformations, and Logging") \
             .getOrCreate()
         
         # Load the dataset
-        df = spark.read.option("header", "true").csv(input_path, inferSchema=True)
-        
-        # Collect rows that have no null values in any column
-        valid_rows = []
+        df = spark.read.option("header", "true").csv(input_file_path, inferSchema=True)
+        print(f"Initial record count: {df.count()}")
 
-        # Check for null values and log errors
-        for row in df.collect():
-            record_row = row.asDict()
-            record_id = None  # Initialize record_id as None for each row
-            has_null = False  # Flag to track if the row has any null values
-
-            for col_name in df.columns:
-                if row[col_name] is None:
-                    has_null = True
-                    # Insert record error only once per row
-                    if record_id is None:
-                        record_id = error_capture_module.insert_record_error(process_file_id, record_row)
-                        print(f"Record ID after insert_record_error: {record_id}")
-                    
-                    # Insert a column error for each null column
-                    error_description = "Null value encountered in non-nullable column"
-                    error_code = error_capture_module.get_error_code(error_description)
-                    print(f"Error code for '{error_description}': {error_code}")
-                    
-                    if error_code is not None and record_id is not None:
-                        
-                        error_capture_module.insert_column_error(record_id, process_file_id, col_name, error_code)
-                    else:
-                        print(f"Error in retrieving record ID or error code for description: {error_description}")
-            
-            # If no null values in the row, add it to valid_rows
-            if not has_null:
-                valid_rows.append(row)
-        
-        # Create a DataFrame with only the valid rows
-        valid_df = spark.createDataFrame(valid_rows, df.schema)
-
-        # Perform transformations
-        df = valid_df.withColumn(
-            "total_financials",
-            col("compensation") +
-            col("reimbursed_expenses") +
-            col("expenses_less_than_75") +
-            col("lobbying_expenses_for_non") +
-            col("itemized_expenses")
-        )
-        
-        # Write the transformed data to MySQL
-        write_to_mysql(df)
-        # Stop the Spark session
-        spark.stop()
-
-
-
-def write_to_mysql(df):
-    # Connect to MySQL
-    connection = pymysql.connect(
-        host=os.getenv("DB1_HOST"),
-        user=os.getenv("DB1_USER"),
-        password=os.getenv("DB1_PASSWORD"),
-        database=os.getenv("DB2_NAME"),
-        cursorclass=pymysql.cursors.DictCursor
-    )
-    with connection.cursor() as cursor:
-        for row in df.collect():
-            cursor.execute(
-                """
-                INSERT INTO Processed_Lobbying_Data (
-                    form_submission_id, reporting_year, filing_type, reporting_period,
-                    principal_lobbyist_name, contractual_client_name, beneficial_client_name,
-                    individual_lobbyist_name, compensation, reimbursed_expenses, expenses_less_than_75,
-                    lobbying_expenses_for_non, itemized_expenses, expense_type, expense_paid_to,
-                    expense_reimbursed_by_client, expense_purpose, expense_date, lobbying_subjects,
-                    level_of_government, lobbying_focus_type, focus_identifying_number,
-                    type_of_lobbying_communication, government_body, monitoring_only, party_name,
-                    unique_id, total_financials
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                """,
-                (
-                    row['form_submission_id'], row['reporting_year'], row['filing_type'],
-                    row['reporting_period'], row['principal_lobbyist_name'],
-                    row['contractual_client_name'], row['beneficial_client_name'],
-                    row['individual_lobbyist_name'], row['compensation'],
-                    row['reimbursed_expenses'], row['expenses_less_than_75'],
-                    row['lobbying_expenses_for_non'], row['itemized_expenses'],
-                    row['expense_type'], row['expense_paid_to'], row['expense_reimbursed_by_client'],
-                    row['expense_purpose'], row['expense_date'], row['lobbying_subjects'],
-                    row['level_of_government'], row['lobbying_focus_type'], row['focus_identifying_number'],
-                    row['type_of_lobbying_communication'], row['government_body'], row['monitoring_only'],
-                    row['party_name'], row['unique_id'], row['total_financials']
-                )
+        # Step 1: Remove duplicates
+        duplicate_count = df.count() - df.dropDuplicates().count()
+        if duplicate_count > 0:
+            record_id = error_capture_module.insert_record_error(
+                process_file_id, {"error": "Duplicate records found"}
             )
-    connection.commit()
-    connection.close()
+            error_description = "Duplicate record detected"
+            error_capture_module.insert_column_error(record_id, process_file_id, "N/A", error_capture_module.get_error_code(error_description))
+        df = df.dropDuplicates()
+        print(f"Record count after removing duplicates: {df.count()}")
+
+        # Step 2: Validate Transaction Date and Sale Date
+        if "Transaction Date" in df.columns and "Sale Date" in df.columns:
+            invalid_date_rows = df.filter((to_date(col("Transaction Date"), "MMMM dd yyyy") > current_date()) |
+                                          (to_date(col("Sale Date"), "MMMM dd yyyy") > current_date()))
+            if invalid_date_rows.count() > 0:
+                for row in invalid_date_rows.collect():
+                    record_id = error_capture_module.insert_record_error(process_file_id, row.asDict())
+                    error_description = "Invalid date format or future date"
+                    error_capture_module.insert_column_error(record_id, process_file_id, "Transaction Date / Sale Date", error_capture_module.get_error_code(error_description))
+                df = df.subtract(invalid_date_rows)
+                print(f"Invalid date rows removed: {invalid_date_rows.count()}")
+
+        # Step 3: Check for null values in mandatory columns
+        mandatory_columns = ["County", "City", "State", "Postal Code", "Legislative District", "Model"]
+        for col_name in mandatory_columns:
+            if col_name in df.columns:
+                null_rows = df.filter(col(col_name).isNull())
+                if null_rows.count() > 0:
+                    for row in null_rows.collect():
+                        record_id = error_capture_module.insert_record_error(process_file_id, row.asDict())
+                        error_description = "Missing required field"
+                        error_capture_module.insert_column_error(record_id, process_file_id, col_name, error_capture_module.get_error_code(error_description))
+                    df = df.subtract(null_rows)
+                    print(f"Rows removed for null values in '{col_name}': {null_rows.count()}")
+        
+        # Final record count after all validations
+        print(f"Record count after all validations: {df.count()}")
+
+        # Transformation 1: Update Electric Range where it is 0
+        if "Electric Range" in df.columns:
+            max_range_df = df.groupBy("Model", "Make").agg(max("Electric Range").alias("Max_Electric_Range"))
+            df = df.join(max_range_df, ["Model", "Make"], "left")
+            df = df.withColumn(
+                "Electric Range",
+                when((col("Electric Range") == 0) & col("Max_Electric_Range").isNotNull(), col("Max_Electric_Range"))
+                .otherwise(col("Electric Range"))
+            ).drop("Max_Electric_Range")
+
+        # Transformation 2: Correct Model Year if greater than 2025
+        if "Model Year" in df.columns and "Year" in df.columns:
+            df = df.withColumn(
+                "Model Year",
+                when(col("Model Year") > 2025, col("Year")).otherwise(col("Model Year"))
+            )
+
+        # Transformation 3: Replace missing Sale Date with Transaction Date for specific Transaction Types
+        if "Transaction Type" in df.columns and "Sale Date" in df.columns and "Transaction Date" in df.columns:
+            df = df.withColumn(
+                "Sale Date",
+                when(
+                    col("Transaction Type").isin("Original Title", "Original Registration", "Title Transfer") & col("Sale Date").isNull(),
+                    col("Transaction Date")
+                ).otherwise(col("Sale Date"))
+            )
+        
+        # Transformation 4: Extract Month and Day of the Week from Transaction Date
+        if "Transaction Date" in df.columns:
+            df = df.withColumn("Transaction Month", month(to_date(col("Transaction Date"), "MMMM dd yyyy")))
+            df = df.withColumn("Transaction Day of Week", dayofweek(to_date(col("Transaction Date"), "MMMM dd yyyy")))
+
+        # Transformation 5: Standardize Electric Vehicle Fee columns
+        fee_columns = ["Electric Vehicle Fee Paid", "Transportation Electrification Fee Paid", "Hybrid Vehicle Electrification Fee Paid"]
+        for fee_col in fee_columns:
+            if fee_col in df.columns:
+                df = df.withColumn(
+                    fee_col,
+                    when(lower(col(fee_col)).isNull() | lower(col(fee_col)).isin("not applicable", "no"), "no")
+                    .when(lower(col(fee_col)).isin("yes"), "yes")
+                    .otherwise(lower(col(fee_col)))
+                )
+
+        # Save the processed data to output
+        output_file_path = os.getenv("OUTPUT_FILE_PATH")
+        df.coalesce(1).write.csv(output_file_path, mode="overwrite", header=True)
+        print(f"Processed data saved to: {output_file_path}")
+
+        # Stop Spark session
+        spark.stop()
